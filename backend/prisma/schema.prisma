@@ -7,35 +7,373 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+//////////////////////////////////////////////////////
+// USERS & ADDRESSES
+//////////////////////////////////////////////////////
 model User {
-  id           Int      @id @default(autoincrement())
-  email        String   @unique
-  password     String
-  displayName  String   // 👈 thêm dòng này
-  phone        String?  
-  avatarUrl    String?
-  role         String   @default("user")
-  ratingAvg    Float    @default(0)
-  ratingCount  Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password_hash String
+  display_name  String
+  phone         String?
+  avatar_url    String?
+  role          String   @default("user")
+  rating_avg    Float    @default(0)
+  rating_count  Int      @default(0)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
 
-  // Quan hệ với Product
-  products     Product[]
+  addresses     Address[]
+  listings      Listing[]
+  offers        Offer[]
+  orders_buyer  Order[]    @relation("orders_buyer")
+  orders_seller Order[]    @relation("orders_seller")
+  favorites     Favorite[]
+  messages      Message[]
+  reviews_given Review[]   @relation("reviews_rater")
+  reviews_recv  Review[]   @relation("reviews_ratee")
+
+  // 👇 bổ sung các quan hệ còn thiếu
+  chats_as_buyer  Chat[]         @relation("chats_buyer")
+  chats_as_seller Chat[]         @relation("chats_seller")
+  search_queries  SearchQuery[]
+  rec_events      RecEvent[]
+  reports         Report[]
+  notifications   Notification[]
+
+  @@map("users")
 }
 
-model Product {
-  id          Int       @id @default(autoincrement())
-  name        String
-  description String?
-  price       Float
-  imageUrl    String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+model Address {
+  id         BigInt  @id @default(autoincrement())
+  user_id    String
+  label      String?
+  country    String?
+  province   String?
+  district   String?
+  ward       String?
+  street     String?
+  lat        Float?
+  lon        Float?
+  is_default Boolean @default(false)
 
-  // Quan hệ với User
-  userId      Int
-  user        User      @relation(fields: [userId], references: [id])
+  user   User    @relation(fields: [user_id], references: [id])
+  orders Order[]
 
-  @@index([userId]) // 🔍 tối ưu truy vấn theo userId
+  @@map("addresses")
+}
+
+//////////////////////////////////////////////////////
+// CATEGORIES
+//////////////////////////////////////////////////////
+model Category {
+  id        BigInt  @id @default(autoincrement())
+  name      String
+  slug      String  @unique
+  parent_id BigInt?
+  path      String?
+
+  parent   Category?  @relation("CategoryToParent", fields: [parent_id], references: [id])
+  children Category[] @relation("CategoryToParent")
+  listings Listing[]
+
+  @@map("categories")
+}
+
+//////////////////////////////////////////////////////
+// LISTINGS
+//////////////////////////////////////////////////////
+model Listing {
+  id                  BigInt    @id @default(autoincrement())
+  seller_id           String
+  title               String
+  description         String?
+  category_id         BigInt?
+  condition           String?
+  price               Float
+  currency            String    @db.Char(3)
+  status              String    @default("active")
+  location_lat        Float?
+  location_lon        Float?
+  views_count         Int       @default(0)
+  favorites_count     Int       @default(0)
+  ai_price_suggestion Float?
+  ai_category_id      BigInt?
+  ai_risk_score       Float?
+  moderation_status   String?
+  moderation_reason   String?
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+  deleted_at          DateTime? 
+  published_at        DateTime?
+  sold_at             DateTime?
+
+  seller    User           @relation(fields: [seller_id], references: [id])
+  category  Category?      @relation(fields: [category_id], references: [id])
+  images    ListingImage[]
+  offers    Offer[]
+  orders    Order[]
+  favorites Favorite[]
+  chats     Chat[]
+
+  // 👇 bổ sung
+  ai_suggestions AiSuggestion[]
+  rec_events     RecEvent[]
+
+  @@map("listings")
+}
+
+model ListingImage {
+  id          BigInt  @id @default(autoincrement())
+  listing_id  BigInt
+  url         String
+  width       Int?
+  height      Int?
+  bytes       BigInt?
+  phash       String?
+  ai_labels   Json?
+  safe_flags  Json?
+  order_index Int?
+
+  listing Listing @relation(fields: [listing_id], references: [id])
+
+  @@map("listing_images")
+}
+
+//////////////////////////////////////////////////////
+// OFFERS & ORDERS
+//////////////////////////////////////////////////////
+model Offer {
+  id          BigInt   @id @default(autoincrement())
+  listing_id  BigInt
+  buyer_id    String
+  offer_price Float
+  status      String
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  listing Listing @relation(fields: [listing_id], references: [id])
+  buyer   User    @relation(fields: [buyer_id], references: [id])
+
+  @@map("offers")
+}
+
+model Order {
+  id                  BigInt   @id @default(autoincrement())
+  listing_id          BigInt
+  buyer_id            String
+  seller_id           String
+  price_final         Float
+  shipping_fee        Float?
+  total_amount        Float
+  payment_status      String
+  order_status        String
+  shipping_address_id BigInt?
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  listing Listing  @relation(fields: [listing_id], references: [id])
+  buyer   User     @relation("orders_buyer", fields: [buyer_id], references: [id])
+  seller  User     @relation("orders_seller", fields: [seller_id], references: [id])
+  address Address? @relation(fields: [shipping_address_id], references: [id])
+
+  // 👇 bổ sung
+  reviews Review[]
+
+  @@map("orders")
+}
+
+//////////////////////////////////////////////////////
+// FAVORITES (N-N)
+//////////////////////////////////////////////////////
+model Favorite {
+  user_id    String
+  listing_id BigInt
+  created_at DateTime @default(now())
+
+  user    User    @relation(fields: [user_id], references: [id])
+  listing Listing @relation(fields: [listing_id], references: [id])
+
+  @@id([user_id, listing_id])
+  @@map("favorites")
+}
+
+//////////////////////////////////////////////////////
+// CHATS & MESSAGES
+//////////////////////////////////////////////////////
+model Chat {
+  id         BigInt   @id @default(autoincrement())
+  listing_id BigInt
+  buyer_id   String
+  seller_id  String
+  created_at DateTime @default(now())
+
+  listing  Listing   @relation(fields: [listing_id], references: [id])
+  buyer    User      @relation("chats_buyer", fields: [buyer_id], references: [id])
+  seller   User      @relation("chats_seller", fields: [seller_id], references: [id])
+  messages Message[]
+
+  @@map("chats")
+}
+
+model Message {
+  id          BigInt   @id @default(autoincrement())
+  chat_id     BigInt
+  sender_id   String
+  content     String?
+  attachments Json?
+  created_at  DateTime @default(now())
+
+  chat   Chat @relation(fields: [chat_id], references: [id])
+  sender User @relation(fields: [sender_id], references: [id])
+
+  @@map("messages")
+}
+
+//////////////////////////////////////////////////////
+// REVIEWS
+//////////////////////////////////////////////////////
+model Review {
+  id         BigInt   @id @default(autoincrement())
+  order_id   BigInt
+  rater_id   String
+  ratee_id   String
+  rating     Int
+  comment    String?
+  created_at DateTime @default(now())
+
+  order Order @relation(fields: [order_id], references: [id])
+  rater User  @relation("reviews_rater", fields: [rater_id], references: [id])
+  ratee User  @relation("reviews_ratee", fields: [ratee_id], references: [id])
+
+  @@map("reviews")
+}
+
+//////////////////////////////////////////////////////
+// AI & SEARCH
+//////////////////////////////////////////////////////
+model Embedding {
+  id          BigInt   @id @default(autoincrement())
+  object_type String
+  object_id   BigInt
+  model       String
+  embedding   Bytes
+  created_at  DateTime @default(now())
+
+  @@map("embeddings")
+}
+
+model AiSuggestion {
+  id              BigInt    @id @default(autoincrement())
+  listing_id      BigInt
+  type            String
+  suggested_value Json
+  model           String
+  parameters      Json?
+  accepted        Boolean   @default(false)
+  accepted_at     DateTime?
+  created_at      DateTime  @default(now())
+
+  listing Listing @relation(fields: [listing_id], references: [id])
+
+  @@map("ai_suggestions")
+}
+
+model ModerationJob {
+  id           BigInt   @id @default(autoincrement())
+  target_type  String
+  target_id    BigInt
+  status       String
+  result       Json?
+  action_taken String?
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  @@map("moderation_jobs")
+}
+
+model RiskScore {
+  id           BigInt   @id @default(autoincrement())
+  subject_type String
+  subject_id   BigInt
+  features     Json
+  risk_score   Float
+  explanation  Json?
+  created_at   DateTime @default(now())
+
+  @@map("risk_scores")
+}
+
+model SearchQuery {
+  id               BigInt   @id @default(autoincrement())
+  user_id          String
+  raw_query        String
+  normalized_query String?
+  filters          Json?
+  results_count    Int?
+  latency_ms       Int?
+  created_at       DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id])
+
+  @@map("search_queries")
+}
+
+model RecEvent {
+  id         BigInt   @id @default(autoincrement())
+  user_id    String
+  listing_id BigInt
+  event      String
+  context    Json?
+  created_at DateTime @default(now())
+
+  user    User    @relation(fields: [user_id], references: [id])
+  listing Listing @relation(fields: [listing_id], references: [id])
+
+  @@map("rec_events")
+}
+
+//////////////////////////////////////////////////////
+// GOVERNANCE & LOGS
+//////////////////////////////////////////////////////
+model Report {
+  id          BigInt    @id @default(autoincrement())
+  reporter_id String
+  target_type String
+  target_id   BigInt
+  reason      String?
+  details     String?
+  status      String
+  created_at  DateTime  @default(now())
+  resolved_at DateTime?
+
+  reporter User @relation(fields: [reporter_id], references: [id])
+
+  @@map("reports")
+}
+
+model AuditLog {
+  id          BigInt   @id @default(autoincrement())
+  actor_type  String
+  actor_id    String
+  action      String
+  target_type String
+  target_id   BigInt
+  diff        Json?
+  created_at  DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+model Notification {
+  id         BigInt   @id @default(autoincrement())
+  user_id    String
+  type       String
+  payload    Json?
+  is_read    Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id])
+
+  @@map("notifications")
 }
