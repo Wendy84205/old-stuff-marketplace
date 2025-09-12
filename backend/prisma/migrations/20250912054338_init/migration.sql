@@ -1,19 +1,3 @@
-/*
-  Warnings:
-
-  - You are about to drop the `product` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `user` table. If the table is not empty, all the data it contains will be lost.
-
-*/
--- DropForeignKey
-ALTER TABLE `product` DROP FOREIGN KEY `Product_userId_fkey`;
-
--- DropTable
-DROP TABLE `product`;
-
--- DropTable
-DROP TABLE `user`;
-
 -- CreateTable
 CREATE TABLE `users` (
     `id` VARCHAR(191) NOT NULL,
@@ -83,6 +67,7 @@ CREATE TABLE `listings` (
     `moderation_reason` VARCHAR(191) NULL,
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updated_at` DATETIME(3) NOT NULL,
+    `deleted_at` DATETIME(3) NULL,
     `published_at` DATETIME(3) NULL,
     `sold_at` DATETIME(3) NULL,
 
