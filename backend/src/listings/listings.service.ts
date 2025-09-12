@@ -1,37 +1,43 @@
 import { Injectable } from "@nestjs/common";
-import { PrismaService } from "../prisma.service";
+import { PrismaService } from "../prisma/prisma.service";
+import { Listing } from "@prisma/client";
 import { CreateListingDto } from "./dto/create-listing.dto";
 import { UpdateListingDto } from "./dto/update-listing.dto";
+import { Prisma } from "@prisma/client";
 
 @Injectable()
 export class ListingsService {
   constructor(private prisma: PrismaService) {}
 
-  create(data: CreateListingDto) {
-    return this.prisma.listings.create({ data });
-  }
-
-  findAll() {
-    return this.prisma.listings.findMany({
-      include: { listing_images: true, category: true },
+  async create(data: CreateListingDto): Promise<Listing> {
+    return this.prisma.listing.create({
+      data: {
+        ...data,
+        status: "active", // default
+        category_id: data.category_id ? BigInt(data.category_id) : null,
+      } as Prisma.ListingUncheckedCreateInput,
     });
   }
 
-  findOne(id: number) {
-    return this.prisma.listings.findUnique({
+  async update(id: bigint, data: UpdateListingDto): Promise<Listing> {
+    return this.prisma.listing.update({
       where: { id },
-      include: { listing_images: true, category: true },
+      data: {
+        ...data,
+        category_id: data.category_id ? BigInt(data.category_id) : null,
+      } as Prisma.ListingUncheckedUpdateInput,
     });
   }
 
-  update(id: number, data: UpdateListingDto) {
-    return this.prisma.listings.update({
-      where: { id },
-      data,
-    });
+  async findAll(): Promise<Listing[]> {
+    return await this.prisma.listing.findMany();
   }
 
-  remove(id: number) {
-    return this.prisma.listings.delete({ where: { id } });
+  async findOne(id: bigint): Promise<Listing | null> {
+    return await this.prisma.listing.findUnique({ where: { id } });
+  }
+
+  async remove(id: bigint): Promise<Listing> {
+    return await this.prisma.listing.delete({ where: { id } });
   }
 }

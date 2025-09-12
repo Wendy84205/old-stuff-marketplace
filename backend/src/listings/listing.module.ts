@@ -1,7 +1,7 @@
 import { Module } from "@nestjs/common";
-import { ListingsService } from "./listings.service";
 import { ListingsController } from "./listings.controller";
-import { PrismaService } from "../prisma/prisma.service";
+import { ListingsService } from "./listings.service";
+import { PrismaService } from "../prisma/prisma.service"; // ✅ phải có file này
 
 @Module({
   controllers: [ListingsController],

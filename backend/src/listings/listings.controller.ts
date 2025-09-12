@@ -1,41 +1,46 @@
-import { Injectable } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
-import { Listing, Prisma } from "@prisma/client";
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Patch,
+  Delete,
+  ParseIntPipe,
+} from "@nestjs/common";
+import { ListingsService } from "./listings.service";
 import { CreateListingDto } from "./dto/create-listing.dto";
 import { UpdateListingDto } from "./dto/update-listing.dto";
 
-@Injectable()
-export class ListingsService {
-  constructor(private prisma: PrismaService) {}
+@Controller("listings")
+export class ListingsController {
+  constructor(private readonly listingsService: ListingsService) {}
 
-  async create(data: CreateListingDto): Promise<Listing> {
-    return this.prisma.listing.create({
-      data: {
-        ...data,
-        category_id: data.category_id ? BigInt(data.category_id) : null,
-      } as Prisma.ListingUncheckedCreateInput,
-    });
+  @Post()
+  create(@Body() createListingDto: CreateListingDto) {
+    return this.listingsService.create(createListingDto);
   }
 
-  async findAll(): Promise<Listing[]> {
-    return this.prisma.listing.findMany();
+  @Patch(":id")
+  update(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() updateListingDto: UpdateListingDto,
+  ) {
+    return this.listingsService.update(BigInt(id), updateListingDto);
   }
 
-  async findOne(id: bigint): Promise<Listing | null> {
-    return this.prisma.listing.findUnique({ where: { id } });
+  @Get()
+  findAll() {
+    return this.listingsService.findAll();
   }
 
-  async update(id: bigint, data: UpdateListingDto): Promise<Listing> {
-    return this.prisma.listing.update({
-      where: { id },
-      data: {
-        ...data,
-        category_id: data.category_id ? BigInt(data.category_id) : null,
-      } as Prisma.ListingUncheckedUpdateInput,
-    });
+  @Get(":id")
+  findOne(@Param("id", ParseIntPipe) id: number) {
+    return this.listingsService.findOne(BigInt(id));
   }
 
-  async remove(id: bigint): Promise<Listing> {
-    return this.prisma.listing.delete({ where: { id } });
+  @Delete(":id")
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.listingsService.remove(BigInt(id));
   }
 }
